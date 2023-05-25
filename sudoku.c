@@ -15,6 +15,7 @@ typedef struct Sudoku{
     char tab[9][9];
 } Sudoku;
 
+
 /*Initializeaza ferestrele si
 deseneaza tabelul*/
 void Desen_tabel(WINDOW *tabel[]) {
@@ -70,22 +71,6 @@ void Desen_tabel(WINDOW *tabel[]) {
     wrefresh(tabel[j]);
 }
 
-/*strege ecranul, pentru un viitor joc*/
-void Stergere_tabel(WINDOW *tabel[]){
-    int i;
-
-    /*sterge toate patratelele si
-    sterge toate ferestrele*/
-    for (i = 0; i <= 31; i++) {
-        wborder(tabel[i], ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
-        wrefresh(tabel[i]);
-        werase(tabel[i]);
-        wrefresh(tabel[i]);
-
-        delwin(tabel[i]);
-    }
-}
-
 void Write(WINDOW *tabel[], char initial[][9]) {
     int i, j;
     int pozitie;
@@ -98,6 +83,103 @@ void Write(WINDOW *tabel[], char initial[][9]) {
             }
         }
     }
+}
+
+
+/*Face citirea pentru fiecare cuv
+si intoarce cuvantul citit prin cuv*/
+void Citire(WINDOW *tabel[], int *lin, int *col, char curent[][9], char initial[][9], char *optiune){
+    /*retine pe rand caracterele
+    introduse de utilizator*/
+    char ch = '\0';
+
+    /*i = indicele caracterului curent*/
+    int i = (*lin);
+    int j = (*col);
+    int pozitie = (i+1)*10 + j + 2;
+    while(i >= 0 && i < 9 && j >= 0 && j < 9){
+        /*citeste doar litere sau '\b' sau '\n' sau ':'*/
+        ch = wgetch(tabel[0]);
+
+        while(!(ch >= '0' && ch <= '9') && !(ch == 8 || ch == 127)
+        && ch != '\n' && ch != ':'){
+            if (ch == 'a'){
+                if(j > 0){
+                    j--;
+                    werase(tabel[101]);
+                    mvwprintw(tabel[101], 0, 0, "pozitia %d %d", i+1, j+1);
+                    wrefresh(tabel[101]);
+                }
+            }
+            else if (ch =='d'){
+                if(j < 8){
+                    j++;
+                    werase(tabel[101]);
+                    mvwprintw(tabel[101], 0, 0, "pozitia %d %d", i+1, j+1);
+                    wrefresh(tabel[101]);
+                }
+            }
+            else if (ch == 'w'){
+                if(i > 0){
+                    i--;
+                    werase(tabel[101]);
+                    mvwprintw(tabel[101], 0, 0, "pozitia %d %d", i+1, j+1);
+                    wrefresh(tabel[101]);
+                }
+            }
+            else if (ch == 's'){
+                if(i < 8){
+                    i++;
+                    werase(tabel[101]);
+                    mvwprintw(tabel[101], 0, 0, "pozitia %d %d", i+1, j+1);
+                    wrefresh(tabel[101]);
+                }
+            }
+            werase(tabel[101]);
+            mvwprintw(tabel[101], 0, 0, "pozitia %d %d", i+1, j+1);
+            wrefresh(tabel[101]);
+            ch = wgetch(tabel[0]);
+        }
+        pozitie = (i+1)*10 + j + 2;
+
+        /*accesare meniu de control*/
+        if(ch == ':'){
+            (*optiune) = ':';
+            goto end;
+        }
+
+        if (ch == '\n') {
+            /*daca am citit enter, atunci ies din functie*/
+            goto end;
+        }
+
+        if(ch == 8 || ch == 127){
+            /*daca am citit \b, sterg ce am scris anterior*/
+            if(i > 0){
+                pozitie = (i+1)*10 + j + 2;
+                mvwprintw(tabel[pozitie], LIN/2, COL/2, " ");
+                wrefresh(tabel[pozitie]);
+            }
+
+        }
+        if(ch >= '0' && ch <= '9') {
+            /*altfel, afisez caracterul citit*/
+            if (initial[i][j] != '*') {
+                /*daca caracterul este initial, nu il pot modifica*/
+                continue;
+            } else {
+                pozitie = (i+1)*10 + j + 2;
+                mvwprintw(tabel[pozitie], LIN/2, COL/2, "%c", ch);
+                wrefresh(tabel[pozitie]);
+                curent[i][j] = ch;
+            }
+        }
+    }
+end:
+    (*lin) = i;
+    (*col) = j;
+    werase(tabel[101]);
+    wrefresh(tabel[101]);
 }
 
 /*alege un cuvant random
@@ -152,9 +234,34 @@ void Random(char initial[9][9], char raspuns[9][9]){
     }
 }
 
+/*strege ecranul, pentru un viitor joc*/
+void Stergere_tabel(WINDOW *tabel[]){
+    int i;
 
+    /*sterge toate patratelele si
+    sterge toate ferestrele*/
+    for (i = 0; i <= 31; i++) {
+        wborder(tabel[i], ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
+        wrefresh(tabel[i]);
+        werase(tabel[i]);
+        wrefresh(tabel[i]);
+
+        delwin(tabel[i]);
+    }
+}
 
 int main(){
+    /*optiunea utilizatorului de
+    a juca, initaial 1, adica
+    doreste sa joace, urmand sa
+    devina 2, daca nu se mai joaca,
+    4, daca se iese din joc cu ajutorul
+    meniului sau 3 daca se reincepe
+    jocul cu ajutorul meniului*/
+    char optiune = '~';
+    int castig = 0;
+
+    while((optiune == '~') && castig == 0){
 
         WINDOW *tabel[102];
 
@@ -171,12 +278,157 @@ int main(){
         /*deseneaza tabelul*/
         Desen_tabel(tabel);
 
+        /*alege un tabel random
+        din dictionar*/
         char initial[9][9];
         char raspuns[9][9];
+        char curent[9][9];
         Random(initial, raspuns);
+
+        int i, j;
+        for(i = 0; i < 9; i++){
+            for(j = 0; j < 9; j++){
+                curent[i][j] = initial[i][j];
+            }
+        }
         Write(tabel, initial);
 
-        
+        start_color();
+        init_pair(1, COLOR_BLACK, COLOR_GREEN);
+        init_pair(2, COLOR_BLACK, COLOR_YELLOW);
+        init_pair(3, COLOR_WHITE, COLOR_BLACK);
+        init_pair(4, COLOR_BLACK, COLOR_RED);
+        init_pair(5, COLOR_BLACK, COLOR_BLUE);
+        init_pair(6, COLOR_BLACK, COLOR_MAGENTA);
+
+        /*color board*/
+        for(i = 0; i < 9; i++){
+            for(j = 0; j < 9; j++){
+                if (initial[i][j] != '*') {
+                    int pozitie = (i+1)*10 + j + 2;
+                    wbkgd(tabel[pozitie], COLOR_PAIR(2));
+                    wrefresh(tabel[pozitie]);
+                }
+            }
+        }
+
+        for (i = 1; i <= 10; i++) {
+            wbkgd(tabel[i], COLOR_PAIR(5));
+            wrefresh(tabel[i]);
+        }
+
+        for (i = 1; i < 100; i = i + 10) {
+            wbkgd(tabel[i], COLOR_PAIR(5));
+            wrefresh(tabel[i]);
+        }
+
+        int lin = 0, col = 0;
+        Citire(tabel, &lin, &col, curent, initial, &optiune);
+        char codif[9][9];
+        //Verif_raspuns(curent, raspuns, codif);
+        //int castig = Castig(codif);
+
+        if(optiune == ':') {
+            for(i = 0; i < 9; i++){
+                for(j = 0; j < 9; j++){
+                    if (codif[i][j] != '1') {
+                        int pozitie = (i+1)*10 + j + 2;
+                        wbkgd(tabel[pozitie], COLOR_PAIR(4));
+                        wrefresh(tabel[pozitie]);
+                    } else {
+                        int pozitie = (i+1)*10 + j + 2;
+                        wbkgd(tabel[pozitie], COLOR_PAIR(1));
+                        wrefresh(tabel[pozitie]);
+                    }
+                }
+            }
+
+            /*color board*/
+            for(i = 0; i < 9; i++){
+                for(j = 0; j < 9; j++){
+                    if (initial[i][j] != '*') {
+                        int pozitie = (i+1)*10 + j + 2;
+                        wbkgd(tabel[pozitie], COLOR_PAIR(2));
+                        wrefresh(tabel[pozitie]);
+                    }
+                }
+            }
+
+            for (i = 1; i <= 10; i++) {
+                wbkgd(tabel[i], COLOR_PAIR(5));
+                wrefresh(tabel[i]);
+            }
+
+            for (i = 1; i < 100; i = i + 10) {
+                wbkgd(tabel[i], COLOR_PAIR(5));
+                wrefresh(tabel[i]);
+            }
+
+            /*afisare raspuns*/
+            werase(tabel[101]);
+            wprintw(tabel[101], "Mai baga o fisa...\n");
+            wrefresh(tabel[101]);
+
+            wprintw(tabel[101],
+            " Mai joci?\napasa ~ pt da sau ! pt nu");
+            wrefresh(tabel[101]);
+            wscanw(tabel[0], "%d", &optiune);
+            //goto end;
+ 
+        } else {
+            if(castig == 1){
+                werase(tabel[101]);
+                wprintw(tabel[101], "Esti zeu!");
+                wrefresh(tabel[101]);
+                wprintw(tabel[101],
+                " Mai joci?\napasa ~ pt da sau ! pt nu");
+                wrefresh(tabel[101]);
+                wscanw(tabel[0], "%d", &optiune);
+                goto end;
+            }
+
+            if(castig == 0){
+                /*afisare raspuns*/
+                werase(tabel[101]);
+                wprintw(tabel[101], "Ai pierdut...\n");
+                wrefresh(tabel[101]);
+                wprintw(tabel[0], "\nRASPUNSUL ERA:\n");
+                wrefresh(tabel[0]);
+                Write(tabel, raspuns);
+
+                /*color board*/
+                for(i = 0; i < 9; i++){
+                    for(j = 0; j < 9; j++){
+                        int pozitie = (i+1)*10 + j + 2;
+                        wbkgd(tabel[pozitie], COLOR_PAIR(1));
+                        wrefresh(tabel[pozitie]);
+                    }
+                }
+
+                for (i = 1; i <= 10; i++) {
+                    wbkgd(tabel[i], COLOR_PAIR(3));
+                    wrefresh(tabel[i]);
+                }
+
+                for (i = 1; i < 100; i = i + 10) {
+                    wbkgd(tabel[i], COLOR_PAIR(3));
+                    wrefresh(tabel[i]);
+                }
+
+                /*meniu*/
+                wprintw(tabel[101],
+                "Mai joci?\napasa ~ pt da sau ! pt nu");
+                wrefresh(tabel[101]);
+                wscanw(tabel[0], "%d", &optiune);
+            }
+        }
+end:
+        Stergere_tabel(tabel);
+        endwin();
+        if(optiune == ':')
+            optiune = '~';
+
+    }
 
     return 0;
 }
